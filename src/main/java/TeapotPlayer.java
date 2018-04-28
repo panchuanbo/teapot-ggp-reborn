@@ -33,11 +33,13 @@ public class TeapotPlayer extends StateMachineGamer {
 	private final static double BRIAN_C_FACTOR = 12.5;
 	private final static int TIMEOUT_BUFFER = 2500;
 
+	private final static boolean USE_PROPNET = true;
+
 	////////////////////
 	//  Gamer System  //
 	////////////////////
 
-	ProverStateMachine stateMachine = null;
+	StateMachine stateMachine = null;
 
 	Node rootNode = null;
 
@@ -45,8 +47,13 @@ public class TeapotPlayer extends StateMachineGamer {
 
 	@Override
 	public StateMachine getInitialStateMachine() {
-		this.stateMachine = new ProverStateMachine();
-		return this.stateMachine;
+		if (USE_PROPNET) {
+			this.stateMachine = new TeapotPropnetStateMachine();
+			return this.stateMachine;
+		} else {
+			this.stateMachine = new ProverStateMachine();
+			return this.stateMachine;
+		}
 	}
 
 	@Override
@@ -88,7 +95,6 @@ public class TeapotPlayer extends StateMachineGamer {
 				for (Node n : this.rootNode.children) {
 					if (n.children == null) continue;
 					for (Node nn : n.children) {
-						// System.out.println("STATE: " + getCurrentState() + " NN.STATE: " + nn.state);
 						if (nn.state.equals(getCurrentState())) {
 							newRoot = nn;
 						}
@@ -120,10 +126,15 @@ public class TeapotPlayer extends StateMachineGamer {
 
 		System.out.println("[Select Move] Utilities:");
 		for (Node n : this.rootNode.children) {
-			System.out.println("\t" + n.action + " (" + n.utility + ")" + (n.finishedComputing ? " (Solved)" : ""));
-			if (n.utility > bestScore) {
-				bestScore = n.utility;
-				selectedNode = n;
+			System.out.println("\t" + n.action + " (" + n.utility + ")" + " (Visits: " + n.visits + ") " + (n.finishedComputing ? " (Solved)" : ""));
+			if (n.utility >= bestScore) {
+				if (n.utility == 100 && n.finishedComputing) {
+					bestScore = Double.POSITIVE_INFINITY;
+					selectedNode = n;
+				} else {
+					bestScore = n.utility;
+					selectedNode = n;
+				}
 			}
 		}
 
@@ -235,15 +246,13 @@ public class TeapotPlayer extends StateMachineGamer {
 		Node selected = select(n);
 		expand(selected);
 		double score = simulateDepthCharge(selected, CHARGES_PER_NODE);
-		backpropagate(selected, score);
+		backpropagate(selected, score, 1);
 	}
 
 	private Node select(Node n) throws GoalDefinitionException {
 		if (n.state != null && (n.children == null)) return n;
 		if (n.state != null && this.stateMachine.isTerminal(n.state)) return n;
 		if (n.state != null && n.visits == 0) return n;
-
-		// Consider going directly for the grandchildren?
 
 		for (Node nn : n.children) {
 			if (nn.visits == 0 && nn.state != null) return nn;
@@ -254,6 +263,8 @@ public class TeapotPlayer extends StateMachineGamer {
 		Node selected = null;
 
 		for (Node nn : n.children) {
+			if (nn.finishedComputing) continue;
+
 			double s = selectfn(nn);
 
 			if (s >= score) {
@@ -262,7 +273,7 @@ public class TeapotPlayer extends StateMachineGamer {
 			}
 		}
 
-		return select(selected);
+		return (selected == null) ? n : select(selected);
 	}
 
 	private void expand(Node n) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
@@ -291,6 +302,10 @@ public class TeapotPlayer extends StateMachineGamer {
 				child.children[j] = makeNode(child, newState, !child.maxnode, child.action);
 
 				child.children[j].indexInParent = j;
+
+				if (child.children[j].finishedComputing) {
+					backpropagate(child.children[j], child.children[j].utility, 0);
+				}
 			}
 
 			// It's the same as parent, so we want to skip.
@@ -323,12 +338,12 @@ public class TeapotPlayer extends StateMachineGamer {
 		}
 	}
 
-	private void backpropagate(Node n, double score) {
+	private void backpropagate(Node n, double score, int visit) {
 		if (n == null) return;
 
 		// Store the average utility
 		n.utility = (n.utility * n.visits + score) / (n.visits + 1);
-		n.visits += 1;
+		n.visits += visit;
 
 		// Solver Starts
 		if (n.children != null && n.finishedChildren.cardinality() == n.children.length) {
@@ -336,6 +351,7 @@ public class TeapotPlayer extends StateMachineGamer {
 
 			double util = (n.maxnode) ? Double.MIN_VALUE : Double.MAX_VALUE;
 			for (Node nn : n.children) {
+				if (nn == null) continue;
 				if (n.maxnode && nn.utility > util) util = nn.utility;
 				else if (!n.maxnode && nn.utility < util) util = nn.utility;
 			}
@@ -356,7 +372,7 @@ public class TeapotPlayer extends StateMachineGamer {
 		}
 		// Solver Ends
 
-		backpropagate(n.parent, score);
+		backpropagate(n.parent, score, visit);
 	}
 
 	/////////////////////
@@ -364,7 +380,7 @@ public class TeapotPlayer extends StateMachineGamer {
 	/////////////////////
 
 	private double selectfn(Node node) throws GoalDefinitionException {
-		double decay = 1.0 / node.level;
+		double decay = 1.0;//2.0 / node.level;
 		double utility = node.utility;
 		double heuristic = node.heuristic;
 
@@ -409,10 +425,6 @@ public class TeapotPlayer extends StateMachineGamer {
 		if (state != null && this.stateMachine.isTerminal(state)) {
 			newNode.finishedComputing = true;
 			newNode.utility = this.stateMachine.getGoal(state, getRole());
-
-			if (newNode.utility == 100) {
-				// backpropagate(newNode, newNode.utility);
-			}
 		}
 
 		if (state != null) {

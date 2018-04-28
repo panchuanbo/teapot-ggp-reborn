@@ -36,18 +36,18 @@ public class Proposition extends Component
 		return name;
 	}
 
-    /**
-     * Setter method.
-     *
-     * This should only be rarely used; the name of a proposition
-     * is usually constant over its entire lifetime.
-     *
-     * @return The name of the Proposition.
-     */
-    public void setName(GdlSentence newName)
-    {
-        name = newName;
-    }
+	/**
+	 * Setter method.
+	 *
+	 * This should only be rarely used; the name of a proposition
+	 * is usually constant over its entire lifetime.
+	 *
+	 * @return The name of the Proposition.
+	 */
+	public void setName(GdlSentence newName)
+	{
+		name = newName;
+	}
 
 	/**
 	 * Returns the current value of the Proposition.
