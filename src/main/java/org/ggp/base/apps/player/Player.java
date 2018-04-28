@@ -128,6 +128,13 @@ public final class Player extends JPanel implements ItemListener
 
 		portTextField.setColumns(15);
 
+		List<Class<? extends Gamer>> newBuffer = new ArrayList<Class<? extends Gamer>>();
+		for (Class<? extends Gamer> g : gamers) {
+			if (g.getName().contains("Teapot")) newBuffer.add(g);
+		}
+
+		gamers = newBuffer;
+
 		// Sort the list of gamers before displaying it to the user
 		java.util.Collections.sort(gamers, new Comparator<Class<? extends Gamer>>() {
 			@Override
