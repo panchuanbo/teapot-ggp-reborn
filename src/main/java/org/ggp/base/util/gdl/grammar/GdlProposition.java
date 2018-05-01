@@ -55,4 +55,13 @@ public final class GdlProposition extends GdlSentence
 		return Collections.emptyList();
 	}
 
+	@Override
+	public String infixString() {
+		return name.infixString();
+	}
+
+	@Override
+	public String toASPString() {
+		return name.toASPString() + "(T)";
+	}
 }

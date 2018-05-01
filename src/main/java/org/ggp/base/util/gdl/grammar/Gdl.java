@@ -21,4 +21,9 @@ public abstract class Gdl implements Serializable
 		return GdlPool.immerse(this);
 	}
 
+	/** Returns Infix Gdl String **/
+	public abstract String infixString();
+
+	/** Returns ASP String (Similar to Gdl!) **/
+	public abstract String toASPString();
 }

@@ -69,26 +69,47 @@ public final class GdlRule extends Gdl
 		StringBuilder sb = new StringBuilder();
 
 		switch (GdlPool.format) {
-			case HRF:
-				sb.append(head + " :- ");
-				for (int i=0; i<body.size(); i++) {
-					sb.append(body.get(i));
-					if (i < body.size()-1) {
-						sb.append(" & ");
-					}
+		case HRF:
+			sb.append(head + " :- ");
+			for (int i=0; i<body.size(); i++) {
+				sb.append(body.get(i));
+				if (i < body.size()-1) {
+					sb.append(" & ");
 				}
-				break;
+			}
+			break;
 
-			case KIF:
-				sb.append("( <= " + head + " ");
-				for (GdlLiteral literal : body) {
-					sb.append(literal + " ");
-				}
-				sb.append(")");
-				break;
+		case KIF:
+			sb.append("( <= " + head + " ");
+			for (GdlLiteral literal : body) {
+				sb.append(literal + " ");
+			}
+			sb.append(")");
+			break;
 		}
 
 		return sb.toString();
 	}
 
+	@Override
+	public String infixString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append(head.infixString() + " :- ");
+		for (GdlLiteral literal : body) {
+			sb.append(literal.infixString() + ",");
+		}
+		if (sb.charAt(sb.length() - 1) == ',') sb.deleteCharAt(sb.length() - 1);
+		return sb.toString();
+	}
+
+	@Override
+	public String toASPString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append(head.toASPString() + " :- ");
+		for (GdlLiteral literal : body) {
+			sb.append(literal.toASPString() + ",");
+		}
+		if (sb.charAt(sb.length() - 1) == ',') sb.deleteCharAt(sb.length() - 1);
+		return sb.toString();
+	}
 }

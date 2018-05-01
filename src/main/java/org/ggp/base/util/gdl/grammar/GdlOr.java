@@ -70,4 +70,20 @@ public final class GdlOr extends GdlLiteral
 		return sb.toString();
 	}
 
+	@Override
+	public String infixString() {
+		return "this exists?";
+	}
+
+	@Override
+	public String toASPString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("{");
+		for (GdlLiteral literal : disjuncts) {
+			sb.append(literal.toASPString() + ";");
+		}
+		if (sb.charAt(sb.length() - 1) == ';') sb.deleteCharAt(sb.length() - 1);
+		sb.append("}");
+		return sb.toString();
+	}
 }

@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 
@@ -21,6 +22,8 @@ public class TeapotPlayer extends StateMachineGamer {
 	//  CONSTANTS  //
 	/////////////////
 
+	public final static int TIMEOUT_BUFFER = 2500;
+
 	private final static int NEUTRAL_NODE = 0;
 	private final static int LOSS_NODE = -1;
 	private final static int WIN_NODE = 1;
@@ -31,42 +34,87 @@ public class TeapotPlayer extends StateMachineGamer {
 	private final static boolean MULTITHREADING_ENABLED = false;
 
 	private final static double BRIAN_C_FACTOR = 12.5;
-	private final static int TIMEOUT_BUFFER = 2500;
 
 	private final static boolean USE_PROPNET = true;
+
+	private static final boolean USE_ASP_SOLVER = false;
+
+	private static final double EPSILON = 4.9E-324;
 
 	////////////////////
 	//  Gamer System  //
 	////////////////////
 
-	StateMachine stateMachine = null;
+	private StateMachine stateMachine = null;
+	private StateMachine[] multiStateMachine = null;
+	private DepthCharger[] chargers = null;
+	private Thread[] threads = null;
 
-	Node rootNode = null;
+	private Node rootNode = null;
 
-	long timeout;
+	private long timeout;
+
+	private StateMachine solverStateMachine = null;
+	private TeapotASPSolver teapotASP = new TeapotASPSolver();
+	private ArrayList<Move> solverMoves = new ArrayList<>();
 
 	@Override
 	public StateMachine getInitialStateMachine() {
 		if (USE_PROPNET) {
 			this.stateMachine = new TeapotPropnetStateMachine();
-			return this.stateMachine;
+			this.solverStateMachine = new TeapotPropnetStateMachine();
+
+			this.chargers = new DepthCharger[NUM_THREADS];
+			this.multiStateMachine = new StateMachine[NUM_THREADS];
+			for (int i = 0; i < NUM_THREADS; i++) this.multiStateMachine[i] = new TeapotPropnetStateMachine();
 		} else {
 			this.stateMachine = new ProverStateMachine();
-			return this.stateMachine;
+
+			this.chargers = new DepthCharger[NUM_THREADS];
+			this.multiStateMachine = new StateMachine[NUM_THREADS];
+			for (int i = 0; i < NUM_THREADS; i++) this.multiStateMachine[i] = new ProverStateMachine();
 		}
+
+		this.threads = new Thread[NUM_THREADS];
+		for (int i = 0; i < NUM_THREADS; i++) {
+			this.chargers[i] = new DepthCharger(this.multiStateMachine[i], null);
+			threads[i] = new Thread(chargers[i]);
+		}
+
+		return this.stateMachine;
 	}
 
+	@SuppressWarnings("unused")
 	@Override
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {
 
-		System.out.println("[Metagame] Metagame Start");
+		System.out.println("[Teapot] Metagame Start");
+
+		this.solverMoves = null;
+
+		if (USE_PROPNET && USE_ASP_SOLVER) {
+			TeapotPropnetStateMachine solverSM = (TeapotPropnetStateMachine)this.solverStateMachine;
+
+			solverSM.initialize(getMatch().getGame().getRules());
+			this.teapotASP.setData(solverSM, solverSM.propnet, solverSM.description, getRole());
+			this.solverMoves = this.teapotASP.solve(timeout);
+		}
+
+		if (MULTITHREADING_ENABLED) {
+			for (int i = 0; i < NUM_THREADS; i++) {
+				this.multiStateMachine[i].initialize(getMatch().getGame().getRules());
+				System.out.println("[Teapot] Initialized Multithreaded Gamer #" + i);
+			}
+		}
 
 		// Create the new node!
 		this.rootNode = makeNode(null, getCurrentState(), true, null);
 		this.rootNode.level = 0;
 
 		this.timeout = timeout - TIMEOUT_BUFFER;
+
+		// Begin Building MCTS Tree
 
 		while (!reachingTimeout()) {
 			if (this.rootNode.finishedComputing && this.rootNode.utility == 100) {
@@ -76,7 +124,7 @@ public class TeapotPlayer extends StateMachineGamer {
 			runMCTS(this.rootNode);
 		}
 
-		System.out.println("[Metagame] Metagame End");
+		System.out.println("[Teapot] Metagame End");
 	}
 
 	@Override
@@ -84,6 +132,15 @@ public class TeapotPlayer extends StateMachineGamer {
 			throws TransitionDefinitionException, MoveDefinitionException, GoalDefinitionException {
 
 		this.timeout = timeout - TIMEOUT_BUFFER;
+
+		if (this.solverMoves != null && this.solverMoves.size() > 0) {
+			Move s = this.solverMoves.get(0);
+			this.solverMoves.remove(0);
+
+			System.out.println("[Teapot] Solved Move: " + s);
+
+			return s;
+		}
 
 		// Recreate the Root Node
 		Node newRoot = null;
@@ -219,12 +276,15 @@ public class TeapotPlayer extends StateMachineGamer {
 			this.machine = machine; this.state = state;
 		}
 
+		public void setState(MachineState state) { this.state = state; this.utility = 0; }
+
 		@Override
 		public void run() {
 			try {
 				utility = depthCharge();
 			} catch (Exception e) {
 				System.out.println("[Depth Charger] Error With Depth Charge");
+				e.printStackTrace();
 			}
 		}
 
@@ -304,7 +364,7 @@ public class TeapotPlayer extends StateMachineGamer {
 				child.children[j].indexInParent = j;
 
 				if (child.children[j].finishedComputing) {
-					backpropagate(child.children[j], child.children[j].utility, 0);
+					// backpropagate(child.children[j], child.children[j].utility, 0);
 				}
 			}
 
@@ -317,11 +377,29 @@ public class TeapotPlayer extends StateMachineGamer {
 		// May the depth charge be with you
 
 		if (MULTITHREADING_ENABLED) {
-			for (int i = 0; i < NUM_THREADS; i++) {
+			for (int i = 0; i < NUM_THREADS; i++) threads[i] = new Thread(chargers[i]);
 
+			for (int i = 0; i < NUM_THREADS; i++) {
+				chargers[i].setState(n.state);
+				threads[i].start();
 			}
 
-			return 0;
+			for (int i = 0; i < NUM_THREADS; i++) {
+				try {
+					threads[i].join();
+				} catch (InterruptedException e) {
+					System.out.println("[Teapot] (Multithreading) Depth Charge Error");
+					e.printStackTrace();
+				}
+			}
+
+			double score = 0;
+
+			for (int i = 0; i < NUM_THREADS; i++) {
+				score += chargers[i].utility;
+			}
+
+			return score / NUM_THREADS;
 		} else {
 			double total = 0, i = 0;
 
@@ -330,7 +408,7 @@ public class TeapotPlayer extends StateMachineGamer {
 				try {
 					total += depthCharge(n.state);
 				} catch (Exception e) {
-					System.out.println("Depth Charge Error");
+					System.out.println("[Teapot] Depth Charge Error");
 				}
 			}
 
@@ -359,7 +437,7 @@ public class TeapotPlayer extends StateMachineGamer {
 			n.utility = util;
 		}
 
-		if (n.parent != null && n.maxnode && n.finishedComputing && n.utility == 0) {
+		if (n.parent != null && n.maxnode && n.finishedComputing && (n.utility == 0 || n.utility == EPSILON)) {
 			n.parent.finishedComputing = true;
 			n.parent.utility = n.utility;
 		} else if (n.parent != null && !n.maxnode && n.finishedComputing && n.utility == 100) {

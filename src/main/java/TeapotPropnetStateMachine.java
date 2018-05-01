@@ -38,13 +38,13 @@ import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBui
 public class TeapotPropnetStateMachine extends StateMachine {
 
 	/** The PropNet **/
-	private PropNet propnet;
-
-	/** Roles **/
-	private List<Role> roles;
+	public PropNet propnet;
 
 	/** Game Description **/
 	public List<Gdl> description;
+
+	/** Roles **/
+	private List<Role> roles;
 
 	/** Zero Sum **/
 	private boolean zeroSum = true;
@@ -146,7 +146,7 @@ public class TeapotPropnetStateMachine extends StateMachine {
 		Set<Proposition> legalProps = this.propnet.getLegalPropositions().get(role);
 		ArrayList<Move> legalMoves = new ArrayList<Move>();
 		for (Proposition p : legalProps) {
-			legalMoves.add(this.getMoveFromProposition(p));
+			legalMoves.add(TeapotPropnetStateMachine.getMoveFromProposition(p));
 		}
 		return legalMoves;
 	}
@@ -219,7 +219,7 @@ public class TeapotPropnetStateMachine extends StateMachine {
 		Proposition[] legalProps = this.legalPropositions.get(role);
 		ArrayList<Move> moves = new ArrayList<Move>();
 		for (Proposition p : legalProps) {
-			if (p.getValue()) moves.add(this.getMoveFromProposition(p));
+			if (p.getValue()) moves.add(TeapotPropnetStateMachine.getMoveFromProposition(p));
 		}
 		return moves;
 	}
@@ -368,7 +368,7 @@ public class TeapotPropnetStateMachine extends StateMachine {
 	 * @param p
 	 * @return a PropNetMove
 	 */
-	public Move getMoveFromProposition(Proposition p) {
+	public static Move getMoveFromProposition(Proposition p) {
 		return new Move(p.getName().get(1));
 	}
 
