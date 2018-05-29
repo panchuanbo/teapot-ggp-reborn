@@ -374,7 +374,7 @@ public abstract class StateMachine
      */
     public List<Move> getRandomJointMove(MachineState state) throws MoveDefinitionException
     {
-        List<Move> random = new ArrayList<Move>();
+        List<Move> random = new ArrayList<Move>(getRoles().size());
         for (Role role : getRoles()) {
             random.add(getRandomMove(state, role));
         }

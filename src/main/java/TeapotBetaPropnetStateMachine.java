@@ -1,3 +1,7 @@
+/**
+ * A Staging Environment for the next Propnet
+ */
+
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -35,7 +39,20 @@ import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 import org.ggp.base.util.statemachine.implementation.prover.query.ProverQueryBuilder;
 
-public class TeapotPropnetStateMachine extends StateMachine {
+public class TeapotBetaPropnetStateMachine extends StateMachine {
+
+	// TODO: Make NOT fast
+	// TODO: External Representation
+
+	// MARK: - Constants
+	private static final int AND_COMP = 0;
+	private static final int CONSTANT_COMP = 1;
+	private static final int NOT_COMP = 2;
+	private static final int OR_COMP = 3;
+	private static final int PROPOSITION_COMP = 4;
+	private static final int TRANSITION_COMP = 5;
+
+	// MARK: - Variables
 
 	/** The PropNet **/
 	public PropNet propnet;
@@ -60,6 +77,12 @@ public class TeapotPropnetStateMachine extends StateMachine {
 
 	/** Maps Role and Legals **/
 	private Map<Role, Proposition[]> legalPropositions;
+
+	/** External Representation: Metadata **/
+	private int[] externalRepMetadata = null;
+
+	/** External Representation: Outputs **/
+	private int[] externalRepOutputs = null;
 
 	@Override
 	public void initialize(List<Gdl> description) {
@@ -91,6 +114,26 @@ public class TeapotPropnetStateMachine extends StateMachine {
 		// Optimization
 		this.optimizeViewPropositions();
 
+		// Conversion into External Representation
+		this.externalRepMetadata = new int[4 * this.propnet.getComponents().size()];
+
+		int identifier = 0, offset = 0;
+		for (Component c : this.propnet.getComponents()) {
+			c.componentId = identifier;
+			TeapotBetaPropnetStateMachine.externalRepSetMetadata(this.externalRepMetadata, identifier, c, offset);
+			identifier++;
+			offset += c.numberOfOutputs();
+		}
+
+		this.externalRepOutputs = new int[offset];
+		for (Component c : this.propnet.getComponents()) {
+			int loc = this.externalRepMetadata[4 * c.componentId + 3];
+			for (Component cc : c.getOutputs()) {
+				this.externalRepOutputs[loc] = cc.componentId;
+				loc++;
+			}
+		}
+
 		// Crystalization and Finalization
 		for (Component c : this.propnet.getComponents()) c.crystalize();
 
@@ -100,7 +143,6 @@ public class TeapotPropnetStateMachine extends StateMachine {
 
 		for (Component c : this.propnet.getComponents()) {
 			if ((c instanceof Constant)) c.setPreviousValue(!c.getValue());
-			// else if ((c instanceof Not)) c.setPreviousValue(!c.getValue());
 			else c.setPreviousValue(false);
 		}
 
@@ -183,7 +225,6 @@ public class TeapotPropnetStateMachine extends StateMachine {
 			if ((c instanceof And)) ((And) c).useFastMethod = true;
 			if ((c instanceof Or)) ((Or) c).useFastMethod = true;
 			if ((c instanceof Transition)) ((Transition) c).useFastMode = true;
-			if ((c instanceof Not)) ((Not) c).useFastMethod = true;
 		}
 		for (Component c : this.propnet.getComponents()) if ((c instanceof Constant)) forwardprop(c);
 		Proposition initProp = this.propnet.getInitProposition();
@@ -233,7 +274,7 @@ public class TeapotPropnetStateMachine extends StateMachine {
 		for (Component c : this.basePropositions) forwardprop(c);
 		for (Component c : this.inputPropositions) forwardprop(c);
 
-		Set<GdlSentence> gdlState = new HashSet<GdlSentence>(this.basePropositions.length);
+		Set<GdlSentence> gdlState = new HashSet<GdlSentence>();
 		BitSet activeStates = new BitSet(this.basePropositions.length);
 		for (int i = 0; i < this.basePropositions.length; i++) {
 			boolean val = this.basePropositions[i].crystalizedGetSingleInput().getValue();
@@ -262,7 +303,6 @@ public class TeapotPropnetStateMachine extends StateMachine {
 			}
 			else if ((o instanceof And)) ((And) o).counter += (c_val) ? 1 : -1;
 			else if ((o instanceof Or)) ((Or) o).counter += (c_val) ? 1 : -1;
-			else if ((o instanceof Not)) ((Not) o).reversed = !c_val;
 			else if ((o instanceof Transition)) {
 				o.setPreviousValue(o.getValue());
 				((Transition) o).setValue(c_val);
@@ -373,6 +413,27 @@ public class TeapotPropnetStateMachine extends StateMachine {
 	 */
 	public static Move getMoveFromProposition(Proposition p) {
 		return new Move(p.getName().get(1));
+	}
+
+	private static void externalRepSetMetadata(int[] arr, int id, Component c, int offset) {
+		// Component Type
+		if (c instanceof And) {
+			arr[id * 4 + 0] = AND_COMP;
+		} else if (c instanceof Constant) {
+			arr[id * 4 + 0] = CONSTANT_COMP;
+		} else if (c instanceof Not) {
+			arr[id * 4 + 0] = NOT_COMP;
+		} else if (c instanceof Or) {
+			arr[id * 4 + 0] = OR_COMP;
+		} else if (c instanceof Proposition) {
+			arr[id * 4 + 0] = PROPOSITION_COMP;
+		} else if (c instanceof Transition) {
+			arr[id * 4 + 0] = TRANSITION_COMP;
+		}
+
+		arr[id * 4 + 1] = c.numberOfInputs();
+		arr[id * 4 + 2] = c.numberOfOutputs();
+		arr[id * 4 + 3] = offset;
 	}
 
 	/////////////////////

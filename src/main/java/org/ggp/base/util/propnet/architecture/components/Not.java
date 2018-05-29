@@ -8,6 +8,10 @@ import org.ggp.base.util.propnet.architecture.Component;
 @SuppressWarnings("serial")
 public final class Not extends Component
 {
+
+	public boolean useFastMethod = false;
+	public boolean reversed = true;
+
 	/**
 	 * Returns the inverse of the input to the not.
 	 *
@@ -16,7 +20,11 @@ public final class Not extends Component
 	@Override
 	public boolean getValue()
 	{
-		return !getSingleInput().getValue();
+		if (useFastMethod) {
+			return reversed;
+		} else {
+			return !getSingleInput().getValue();
+		}
 	}
 
 	/**
