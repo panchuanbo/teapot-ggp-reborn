@@ -21,7 +21,6 @@
 	<classpathentry kind="lib" path="lib/reflections/reflections-0.9.9-RC1.jar"/>
 	<classpathentry kind="lib" path="lib/Htmlparser/htmlparser-1.4.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="/Users/panchuanbo/Developer/ggp/teapot-ggp-reborn/commons-math3-3.6.1/commons-math3-3.6.1-javadoc.jar"/>
 	<classpathentry kind="lib" path="/Users/panchuanbo/Developer/ggp/teapot-ggp-reborn/commons-math3-3.6.1/commons-math3-3.6.1-sources.jar"/>
 	<classpathentry kind="lib" path="/Users/panchuanbo/Developer/ggp/teapot-ggp-reborn/commons-math3-3.6.1/commons-math3-3.6.1-test-sources.jar"/>
 	<classpathentry kind="lib" path="/Users/panchuanbo/Developer/ggp/teapot-ggp-reborn/commons-math3-3.6.1/commons-math3-3.6.1-tests.jar"/>
