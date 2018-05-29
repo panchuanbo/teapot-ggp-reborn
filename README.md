@@ -1,6 +1,10 @@
 # GGP Java codebase for CS227B
 
-This codebase is forked from the repo at ggp-org repo. 
+A reboot of the original Teapot GGP Player: https://github.com/panchuanbo/teapot-ggp-base
+
+A fun side project involving general game playing. Original code from the Stanford CS227B course and forked from the ggp-org repo.
+
+## Original README
 
 * Renames methods to match the notes for the Stanford CS227B course.
 * Support two different communication protocols between manager and player.
