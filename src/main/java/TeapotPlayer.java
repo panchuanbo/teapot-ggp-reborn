@@ -33,11 +33,12 @@ public class TeapotPlayer extends StateMachineGamer {
 
 	private final static double BRIAN_C_FACTOR = 12.5;
 
-	private final static boolean USE_PROPNET = false;
+	private final static boolean USE_PROPNET = true;
 
 	private static final boolean USE_ASP_SOLVER = false;
 	private static final boolean SEED_HEURISTIC = false;
-	private static final boolean USE_HEURISTICS = false;
+	private static final boolean USE_HEURISTICS = true;
+	private static final boolean DECAY_HEURISTICS  = false;
 
 	private static final double EPSILON = 4.9E-324;
 
@@ -61,6 +62,8 @@ public class TeapotPlayer extends StateMachineGamer {
 	private TeapotHeuristics teapotHeuristics = new TeapotHeuristics();
 
 	private int totalDepthCharges = 0;
+
+	private boolean lastResort = false;
 
 	@Override
 	public StateMachine getInitialStateMachine() {
@@ -99,6 +102,7 @@ public class TeapotPlayer extends StateMachineGamer {
 
 		System.out.println("[Teapot] Metagame Start");
 
+		this.lastResort = false;
 		this.solverMoves = null;
 
 		if (USE_PROPNET && USE_ASP_SOLVER) {
@@ -121,21 +125,28 @@ public class TeapotPlayer extends StateMachineGamer {
 		this.timeout = timeout - TIMEOUT_BUFFER;
 
 		// Heuristics
-		this.teapotHeuristics.setData(this.stateMachine, getRole());
-		this.teapotHeuristics.calculate(this.timeout - (this.timeout - System.currentTimeMillis()) / 2);
+		if (USE_HEURISTICS) {
+			boolean isZeroSum = (this.stateMachine instanceof TeapotPropnetStateMachine) ? ((TeapotPropnetStateMachine)this.stateMachine).isZeroSum() : false;
+
+			this.teapotHeuristics.setData(this.stateMachine, getRole());
+			this.teapotHeuristics.calculate(this.timeout - (this.timeout - System.currentTimeMillis()) / 2, isZeroSum);
+		}
 
 		// Create the new node!
 		this.rootNode = makeNode(null, getCurrentState(), true, null);
 		this.rootNode.level = 0;
 
 		// Begin Building MCTS Tree
+		int mctsCycles = 0;
 		while (!reachingTimeout()) {
+			mctsCycles++;
 			if (this.rootNode.finishedComputing && this.rootNode.utility == 100) {
-				System.out.println("[Metagame] Game Solved!");
+				System.out.println("[Metagame] Game Solved! Cycles: " + mctsCycles);
 				break;
 			}
 			runMCTS(this.rootNode);
 		}
+		System.out.println("[Metagame] MCTS Cycles: " + mctsCycles);
 
 		System.out.println("[Teapot] Metagame End");
 	}
@@ -201,6 +212,8 @@ public class TeapotPlayer extends StateMachineGamer {
 
 		System.out.println("[Select Move] Utilities:");
 		for (Node n : this.rootNode.children) {
+			this.lastResort = false;
+
 			System.out.println("\t" + n.action + " (" + n.utility + ")" + " (Visits: " + n.visits + ") " + (n.finishedComputing ? " (Solved)" : ""));
 			if (n.utility >= bestScore) {
 				if (n.utility == 100 && n.finishedComputing) {
@@ -214,11 +227,13 @@ public class TeapotPlayer extends StateMachineGamer {
 		}
 
 		if (bestScore == 0 || bestScore == EPSILON) {
+			this.lastResort = true;
+
 			System.out.println("[Teapot] Gamer Likely Lost - Selecting Best Move");
 			System.out.println("[Select Move] Last-Resort Utilities:");
 			for (Node n : this.rootNode.children) {
 				double score = (n.visits > 0) ? n.total_utility / n.visits : 0;
-				System.out.println("\t" + n.action + " (" + score + ")" + " (Visits: " + n.visits + ") " + (n.finishedComputing ? " (Solved)" : ""));
+				System.out.println("\t" + n.action + " (" + score + ")" + " (Visits: " + n.visits + ")");
 				if (score >= bestScore) {
 					bestScore = score;
 					selectedNode = n;
@@ -286,7 +301,7 @@ public class TeapotPlayer extends StateMachineGamer {
 		Node selected = null;
 
 		for (Node nn : n.children) {
-			if (nn.finishedComputing) continue;
+			if (nn.finishedComputing && !this.lastResort) continue;
 
 			double s = selectfn(nn);
 
@@ -385,34 +400,6 @@ public class TeapotPlayer extends StateMachineGamer {
 		// Quick Check
 		if (n.isTerminal) n.finishedComputing = true;
 
-		// Check if score is min of all scores
-
-		/*
-		if (this.stateMachine.findRoles().size() > 1) {
-			if (n.maxnode && n.children != null) {
-				double s = Double.NEGATIVE_INFINITY;
-				for (Node nn : n.children) {
-					if (nn.visits == 0) continue;
-					if (nn.utility > s) s = nn.utility;
-				}
-
-				score = (score > s) ? score : s;
-			} else if (!n.maxnode && n.children != null) {
-				double s = Double.POSITIVE_INFINITY;
-				for (Node nn : n.children) {
-					if (nn.visits == 0) continue;
-					if (nn.utility < s) s = nn.utility;
-				}
-
-				score = (score < s) ? score : s;
-			}
-		}
-		 */
-
-
-		// Store the average utility
-		// if (!n.isTerminal) n.utility = (n.utility * n.visits + score) / (n.visits + 1.0);
-
 		n.total_utility += score;
 		n.visits += visit;
 		if (!n.finishedComputing) n.utility = n.total_utility / n.visits;		// More Numerically Stable Calculation
@@ -456,7 +443,7 @@ public class TeapotPlayer extends StateMachineGamer {
 
 	private double selectfn(Node node) throws GoalDefinitionException {
 		// double decay = (node.level <= 1) ? 1 : 1.0 / Math.log(node.level);
-		double decay = Math.max(0.16, (100.0 - node.level / 2.0) / 100.0);
+		double decay = (DECAY_HEURISTICS) ? Math.max(0.16, (100.0 - node.level / 2.0) / 100.0) : 1;
 		double utility = node.utility;
 		double heuristic = (SEED_HEURISTIC) ? 0 : node.heuristic;
 

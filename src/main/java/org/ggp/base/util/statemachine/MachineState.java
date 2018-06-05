@@ -32,11 +32,18 @@ public class MachineState {
 	 */
 	public Set<GdlSentence> getContents()
 	{
+		assert(false);
+
 		return contents;
 	}
 
 	@Override
 	public MachineState clone() {
+		if (this.contents == null) {
+			BitSet set = (BitSet) this.activeBits.clone();
+			return new MachineState(set);
+		}
+
 		return new MachineState(new HashSet<GdlSentence>(contents));
 	}
 
@@ -63,7 +70,11 @@ public class MachineState {
 		if ((o != null) && (o instanceof MachineState))
 		{
 			MachineState state = (MachineState) o;
-			return state.getContents().equals(getContents());
+			if (getContents() == null) {
+				return state.getPropContents().equals(getPropContents());
+			} else {
+				return state.getContents().equals(getContents());
+			}
 		}
 
 		return false;
@@ -80,6 +91,14 @@ public class MachineState {
 	 */
 	public MachineState(Set<GdlSentence> contents, BitSet activeBits) {
 		this.contents = contents;
+		this.activeBits = activeBits;
+	}
+
+	/**
+	 * MachineState Initialization but without contents
+	 */
+	public MachineState(BitSet activeBits) {
+		this.contents = null;
 		this.activeBits = activeBits;
 	}
 

@@ -234,17 +234,13 @@ public class TeapotBetaPropnetStateMachine extends StateMachine {
 			forwardprop(this.propnet.getInitProposition());
 		}
 
-		Set<GdlSentence> state = new HashSet<GdlSentence>();
 		BitSet activeStates = new BitSet(this.basePropositions.length);
 		for (int i = 0; i < this.basePropositions.length; i++) {
 			boolean val = this.basePropositions[i].crystalizedGetSingleInput().getValue();
 			activeStates.set(i, val);
-			if (val) {
-				state.add(this.basePropositions[i].getName());
-			}
 		}
 
-		System.out.println("[PropNet] INITIAL STATE VALUES: " + state);
+		System.out.println("[PropNet] INITIAL STATE VALUES: " + activeStates);
 
 		if (initProp != null) {
 			this.propnet.getInitProposition().setValue(false);
@@ -252,7 +248,7 @@ public class TeapotBetaPropnetStateMachine extends StateMachine {
 			System.out.println("[PropNet] Turning off init prop...");
 		}
 
-		return new MachineState(state, activeStates);
+		return new MachineState(activeStates);
 	}
 
 	@Override
@@ -274,17 +270,13 @@ public class TeapotBetaPropnetStateMachine extends StateMachine {
 		for (Component c : this.basePropositions) forwardprop(c);
 		for (Component c : this.inputPropositions) forwardprop(c);
 
-		Set<GdlSentence> gdlState = new HashSet<GdlSentence>();
 		BitSet activeStates = new BitSet(this.basePropositions.length);
 		for (int i = 0; i < this.basePropositions.length; i++) {
 			boolean val = this.basePropositions[i].crystalizedGetSingleInput().getValue();
 			activeStates.set(i, val);
-			if (val) {
-				gdlState.add(this.basePropositions[i].getName());
-			}
 		}
 
-		return new MachineState(gdlState, activeStates);
+		return new MachineState(activeStates);
 	}
 
 	/////////////////////

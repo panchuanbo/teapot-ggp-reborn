@@ -37,7 +37,7 @@ public class TeapotHeuristics {
 		this.machine = machine; this.role = role;
 	}
 
-	public void calculate(long timeout) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
+	public void calculate(long timeout, boolean isZeroSum) throws MoveDefinitionException, TransitionDefinitionException, GoalDefinitionException {
 		this.goalHeuristicBuffer.clear(); this.mobilityHeuristicBuffer.clear(); this.focusHeuristicBuffer.clear();
 		this.finalScores.clear();
 		this.feasible = this.machine.findActions(this.role).size();
@@ -99,6 +99,11 @@ public class TeapotHeuristics {
 		focusHeuristic = validate(focusHeuristic);
 		nStepHeuristic = validate(nStepHeuristic);
 		mobilityHeuristic = validate(mobilityHeuristic);
+
+		if (isZeroSum) {
+			System.out.println("[TeapotHeuristics] Invalidating Goal Heuristic (Zero Sum)");
+			goalHeuristic = 0;
+		}
 
 		System.out.println("[TeapotHeuristics] Used Heuristics:");
 		System.out.println("\tGoal: " + goalHeuristic);
