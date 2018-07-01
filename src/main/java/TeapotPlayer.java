@@ -497,7 +497,9 @@ public class TeapotPlayer extends StateMachineGamer {
 			double heuristic = (USE_HEURISTICS) ? this.teapotHeuristics.compute(state) : 0;
 			if (SEED_HEURISTIC) newNode.utility = heuristic;
 			newNode.heuristic = heuristic;
-			if (parent != null && parent.state == null) parent.heuristic += newNode.heuristic / parent.children.length;
+
+			// This is an experiment
+			// if (parent != null && parent.state == null) parent.heuristic += newNode.heuristic / parent.children.length;
 		}
 
 		if (this.teapotHeuristics.hasHeuristics && SEED_HEURISTIC) newNode.visits = 1;
